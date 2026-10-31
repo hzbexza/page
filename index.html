@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>나만의 주민등록증 만들기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@200..900&display=swap" rel="stylesheet">
+<style>
+  /* 아이들 글씨 폰트 (index.html과 같은 폴더에 .otf 파일을 같이 올려야 해요) */
+  @font-face {
+    font-family: "ChildFund";
+    src: url("YoonChildfundkoreaManSeh.otf") format("opentype");
+    font-display: swap;
+  }
+  :root {
+    --page-bg: #f8f1e1;      /* 페이지 배경색(웜 아이보리): 여기만 바꾸면 돼요 */
+    --ink: #54493c;          /* 카드 글씨 색 (원본에서 뽑은 갈색 회색) */
+    --accent: #c4563f;
+    --card-font: "Noto Serif KR", "Batang", serif;  /* 카드 글씨 폰트: 여기만 바꾸면 전체 반영 */
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page-bg);
+    font-family: "ChildFund", sans-serif;
+    color: #4a3f36;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 32px;
+  }
+  h1 { font-weight: 400; font-size: clamp(28px, 4vw, 44px); margin: 0 0 6px; text-align: center; }
+  .sub { margin: 0 0 18px; font-size: clamp(13px, 1.6vw, 16px); text-align: center; color: #7a6a58; }
+
+  /* ---------- 카드 ---------- */
+  .stage {
+    position: relative;
+    width: min(100%, 1000px, calc((100vh - 250px) * 1.4056));
+    width: min(100%, 1000px, calc((100dvh - 250px) * 1.4056));  /* 화면 높이에 맞춰 카드 크기 자동 조절 */
+    aspect-ratio: 1296 / 922;
+    container-type: inline-size;
+    background: url("blank.png") center / 100% 100% no-repeat;
+    border-radius: 2.2%;
+    box-shadow: 0 10px 28px rgba(90, 70, 40, .25);
+  }
+  .field {
+    position: absolute;
+    font-family: var(--card-font);
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+  }
+  /* 모든 좌표는 원본 이미지(1296 x 922) 기준 % */
+  .f-name { left: 24.0%; top: 37.0%; width: 28%; height: 9%; font-size: 3.4cqw; font-weight: 200; }
+  .f-birth { left: 24.0%; top: 48.8%; width: 32%; height: 7%; font-size: 2.2cqw; font-weight: 400; gap: 0; }
+
+  .field input {
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    padding: 0 .15em;
+    margin: 0;
+    height: 100%;
+    min-width: 0;
+    border-radius: .3em;
+    transition: background .15s, box-shadow .15s;
+  }
+  .f-name input {
+    width: 100%;
+    letter-spacing: .5em;
+    font-weight: 200;
+  }
+  .f-birth input { text-align: right; padding: 0 .05em; }
+  #by { width: calc(4ch + .1em); text-align: left; }
+  #bm, #bd { width: calc(2ch + .1em); }
+  .f-birth span { white-space: nowrap; margin-right: .3em; }
+
+  .field input::placeholder { color: transparent; }
+  /* 커서를 올리면 쓸 수 있는 칸이 보여요 */
+  .field input:hover,
+  .field input:focus {
+    background: rgba(255, 255, 255, .45);
+    box-shadow: 0 0 0 .08em rgba(196, 86, 63, .75);
+  }
+  .field input:hover::placeholder,
+  .field input:focus::placeholder { color: rgba(74, 63, 54, .35); letter-spacing: 0; }
+
+  /* 사진 */
+  .photo {
+    position: absolute;
+    left: 56.2%; top: 13.4%; width: 33.3%; height: 59.0%;
+    overflow: hidden;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    font-family: var(--card-font);
+    font-size: 2cqw;
+    color: rgba(74, 63, 54, .0);
+    transition: background .15s, color .15s;
+    outline: 0;
+  }
+  .photo:hover, .photo.drag { background: rgba(255, 255, 255, .4); color: rgba(74, 63, 54, .75); }
+  .photo:focus-visible { box-shadow: inset 0 0 0 .3cqw rgba(196, 86, 63, .75); }
+  .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+  .photo.has-img img { display: block; }
+  .photo.has-img:hover { background: transparent; color: transparent; }
+  .photo.has-img:hover::after {
+    content: "사진 바꾸기";
+    position: absolute; inset: auto 0 0 0; padding: .6em;
+    background: rgba(74, 63, 54, .6); color: #fff;
+  }
+  .photo.sepia img { filter: sepia(.45) contrast(.95) saturate(.85); }
+
+  /* 터치 기기는 hover가 없어서 힌트를 항상 살짝 보여줘요 */
+  @media (hover: none) {
+    .field input { box-shadow: 0 0 0 .05em rgba(74, 63, 54, .25); }
+    .field input::placeholder { color: rgba(74, 63, 54, .3); }
+    .photo:not(.has-img) { color: rgba(74, 63, 54, .6); }
+  }
+
+  /* ---------- 버튼 ---------- */
+  .tools { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+  button {
+    font: inherit; font-size: 18px;
+    border: 0; border-radius: 999px;
+    padding: .45em 1.2em;
+    cursor: pointer;
+    background: var(--accent); color: #fff;
+  }
+  button.ghost { background: #fff; color: #4a3f36; }
+  button:focus-visible { outline: 3px solid #3b3a36; outline-offset: 2px; }
+  .msg { min-height: 1.4em; margin-top: 6px; font-size: 15px; color: var(--accent); text-align: center; }
+
+  /* ---------- 인쇄: 주민등록증만 나오게 ---------- */
+  #printArea { display: none; }
+  @page { size: A4 landscape; margin: 12mm; }
+  @media print {
+    body > *:not(#printArea) { display: none !important; }
+    body { display: block; background: #fff; padding: 0; min-height: 0; }
+    #printArea { display: flex; justify-content: center; }
+    #printArea img { width: 100%; max-height: 180mm; object-fit: contain; }
+  }
+</style>
+</head>
+<body>
+
+<h1>나만의 주민등록증 만들기</h1>
+<p class="sub">이름과 생일을 쓰고, 사진을 올려 보세요. 칸 위에 마우스를 올리면 쓸 수 있어요.</p>
+
+<div class="stage" id="stage">
+  <label class="field f-name">
+    <input id="name" type="text" maxlength="6" placeholder="이름" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" aria-label="이름">
+  </label>
+
+  <div class="field f-birth">
+    <input id="by" type="text" inputmode="numeric" maxlength="4" placeholder="2016" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" aria-label="태어난 해">
+    <span>년</span>
+    <input id="bm" type="text" inputmode="numeric" maxlength="2" placeholder="05" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" aria-label="태어난 달">
+    <span>월</span>
+    <input id="bd" type="text" inputmode="numeric" maxlength="2" placeholder="05" autocomplete="off" spellcheck="false" autocorrect="off" autocapitalize="off" aria-label="태어난 날">
+    <span>일</span>
+  </div>
+
+  <div class="photo sepia" id="photo" role="button" tabindex="0" aria-label="사진 올리기">
+    <span>여기를 눌러서<br>내 사진 올리기</span>
+    <img id="photoImg" alt="">
+  </div>
+</div>
+
+<input id="file" type="file" accept="image/*" hidden>
+
+<div class="tools">
+  <button id="save">내 주민등록증 저장하기</button>
+  <button id="print">인쇄하기</button>
+  <button id="reset" class="ghost">처음부터 다시</button>
+</div>
+<div class="msg" id="msg"></div>
+
+<!-- 인쇄할 때만 쓰이는 영역 -->
+<div id="printArea"><img id="printImg" alt="주민등록증"></div>
+
+<script>
+(() => {
+  // 원본 이미지(1296 x 922) 기준 좌표 — 저장/인쇄용 캔버스에서 사용
+  const W = 1296, H = 922;
+  const INK = "#54493c";
+  const FONT = "Noto Serif KR";
+  const NAME  = { x: 312, y: 383, size: 44, spacing: 22 };
+  const BIRTH = { x: 312, y: 481, size: 28.5 };
+  const PHOTO = { x: 728, y: 124, w: 432, h: 544 };
+
+  const $ = id => document.getElementById(id);
+  const nameEl = $("name"), by = $("by"), bm = $("bm"), bd = $("bd");
+  const fileEl = $("file"), photo = $("photo"), photoImg = $("photoImg");
+  const msg = $("msg");
+  let photoUrl = "";
+
+  nameEl.addEventListener("input", () => { nameEl.value = nameEl.value.replace(/\s/g, ""); });
+
+  // 생일 칸은 숫자만, 칸이 다 차면 다음 칸으로
+  [[by, 4, bm], [bm, 2, bd], [bd, 2, null]].forEach(([el, len, next]) => {
+    el.addEventListener("input", () => {
+      el.value = el.value.replace(/\D/g, "");
+      if (next && el.value.length >= len) next.focus();
+    });
+  });
+
+  // ---------- 사진 올리기 ----------
+  function setPhoto(file) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { msg.textContent = "사진 파일만 올릴 수 있어요."; return; }
+    msg.textContent = "";
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    photoUrl = URL.createObjectURL(file);
+    photoImg.onerror = () => {
+      msg.textContent = "이 사진은 열 수가 없어요. JPG나 PNG 사진으로 다시 올려 주세요.";
+      photoImg.removeAttribute("src");
+      photo.classList.remove("has-img");
+    };
+    photoImg.onload = () => photo.classList.add("has-img");
+    photoImg.src = photoUrl;
+  }
+
+  photo.addEventListener("click", () => fileEl.click());
+  photo.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileEl.click(); }
+  });
+  fileEl.addEventListener("change", () => { setPhoto(fileEl.files[0]); fileEl.value = ""; });
+
+  // 사진 파일을 칸 위로 끌어다 놓아도 돼요
+  photo.addEventListener("dragover", e => { e.preventDefault(); photo.classList.add("drag"); });
+  photo.addEventListener("dragleave", () => photo.classList.remove("drag"));
+  photo.addEventListener("drop", e => {
+    e.preventDefault();
+    photo.classList.remove("drag");
+    setPhoto(e.dataTransfer.files[0]);
+  });
+
+  $("reset").addEventListener("click", () => {
+    [nameEl, by, bm, bd].forEach(el => el.value = "");
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    photoUrl = "";
+    photoImg.removeAttribute("src");
+    photo.classList.remove("has-img");
+    msg.textContent = "";
+  });
+
+  // ---------- 카드 그리기 (저장/인쇄 공통) ----------
+  function loadImg(src) {
+    return new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = src;
+    });
+  }
+
+  async function render() {
+    await document.fonts.load(`400 32px "${FONT}"`);
+    await document.fonts.load(`200 44px "${FONT}"`);
+    const c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    const ctx = c.getContext("2d");
+
+    ctx.drawImage(await loadImg("blank.png"), 0, 0, W, H);
+
+    // 사진 (칸에 꽉 차게 잘라서 넣기)
+    if (photoUrl) {
+      const im = await loadImg(photoUrl);
+      const s = Math.max(PHOTO.w / im.width, PHOTO.h / im.height);
+      const sw = PHOTO.w / s, sh = PHOTO.h / s;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(PHOTO.x, PHOTO.y, PHOTO.w, PHOTO.h); ctx.clip();
+      ctx.filter = "sepia(0.45) contrast(0.95) saturate(0.85)";
+      ctx.drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, PHOTO.x, PHOTO.y, PHOTO.w, PHOTO.h);
+      ctx.restore();
+    }
+
+    ctx.fillStyle = INK;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+
+    // 이름
+    if (nameEl.value.trim()) {
+      ctx.font = `200 ${NAME.size}px "${FONT}"`;
+      if ("letterSpacing" in ctx) ctx.letterSpacing = NAME.spacing + "px";
+      ctx.fillText(nameEl.value.replace(/\s/g, ""), NAME.x, NAME.y);
+      if ("letterSpacing" in ctx) ctx.letterSpacing = "0px";
+    }
+
+    // 생년월일
+    if (by.value || bm.value || bd.value) {
+      ctx.font = `400 ${BIRTH.size}px "${FONT}"`;
+      const t = `${by.value || "    "}년 ${bm.value || "  "}월 ${bd.value || "  "}일`;
+      ctx.fillText(t, BIRTH.x, BIRTH.y);
+    }
+    return c;
+  }
+
+  const FAIL = "안 됐어요. 인터넷 주소(https://)로 열어서 다시 해 보세요.";
+
+  // ---------- 저장 ----------
+  $("save").addEventListener("click", async () => {
+    msg.textContent = "";
+    try {
+      const c = await render();
+      const a = document.createElement("a");
+      a.download = `주민등록증_${nameEl.value.trim() || "내것"}.png`;
+      a.href = c.toDataURL("image/png");
+      a.click();
+      msg.textContent = "저장됐어요!";
+    } catch (err) {
+      console.error(err);
+      msg.textContent = "저장이 " + FAIL;
+    }
+  });
+
+  // ---------- 인쇄 (주민등록증만) ----------
+  $("print").addEventListener("click", async () => {
+    msg.textContent = "";
+    try {
+      const c = await render();
+      const img = $("printImg");
+      img.src = c.toDataURL("image/png");
+      await img.decode();
+      window.print();
+    } catch (err) {
+      console.error(err);
+      msg.textContent = "인쇄가 " + FAIL;
+    }
+  });
+})();
+</script>
+</body>
+</html>
